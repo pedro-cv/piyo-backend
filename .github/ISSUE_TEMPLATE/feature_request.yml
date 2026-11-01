@@ -1,0 +1,31 @@
+name: Feature request / Idea
+description: Propose an improvement. Keep in mind Piyo stays free, ad-free, offline-capable and account-less.
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or missing today for a rider, a mapper or a maintainer?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should happen instead? Sketches and screenshots welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["App · Buscar / Resultados", "App · Líneas", "App · Datos / editor de rutas", "App · other", "API / backend", "Dataset / importer", "Deploy / map tiles", "Docs"]
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Fits the principles
+      options:
+        - label: Works offline or degrades honestly
+        - label: Needs no account, analytics, ads or third-party SDK
+        - label: Does not add a paid service to run

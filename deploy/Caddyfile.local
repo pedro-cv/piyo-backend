@@ -1,0 +1,38 @@
+# Local simulation of the VPS: plain HTTP on :80, same routes as production.
+#   /v1/*                 -> Go API
+#   /tiles/santa-cruz.pmtiles -> static file (offline map download)
+#   /tiles/*              -> Martin (vector tiles, TileJSON)
+#   /assets/*             -> fonts (glyph PBFs) and sprites (static)
+:80 {
+	encode gzip zstd
+
+	@pmtiles path /tiles/santa-cruz.pmtiles
+	handle @pmtiles {
+		root * /srv
+		header Cache-Control "public, max-age=86400"
+		header Accept-Ranges bytes
+		file_server
+	}
+
+	handle_path /tiles/* {
+		header Access-Control-Allow-Origin *
+		header Cache-Control "public, max-age=604800"
+		reverse_proxy martin:3000
+	}
+
+	handle_path /assets/* {
+		root * /srv/assets
+		header Access-Control-Allow-Origin *
+		header Cache-Control "public, max-age=2592000"
+		file_server
+	}
+
+	handle {
+		reverse_proxy api:8080
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

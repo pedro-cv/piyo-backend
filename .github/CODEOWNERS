@@ -1,0 +1,6 @@
+# Review ownership. Rulesets can require a CODEOWNERS review once a second maintainer exists.
+*                         @pedro-cv
+/.github/                 @pedro-cv
+/deploy/                  @pedro-cv
+/backend/internal/store/  @pedro-cv
+/docs/implementation/PRIVACY.md @pedro-cv

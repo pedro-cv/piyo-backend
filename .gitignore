@@ -1,0 +1,26 @@
+# secrets / local config
+.env
+.env.*
+!.env.example
+deploy/.env
+*.pem
+*.key
+*.p12
+.claude/settings.local.json
+# build / data
+bin/
+*.db
+*.db-*
+data/
+releases/
+coverage.out
+deploy/data/*
+!deploy/data/.gitkeep
+deploy/tiles/node_modules/
+deploy/tiles/package-lock.json
+# misc
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,44 @@
+name: Bug report / Error
+description: Something in the app or the API does not work as it should.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Podés escribir en español o inglés. Para errores en los recorridos usá la plantilla *Data error*."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Buscar
+        2. Mi ubicación → "Plan 3000"
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version / dataset version (Datos y conexión) or API commit
+      placeholder: "0.1.0 · datos v15"
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version (or server OS)
+      placeholder: "Xiaomi Redmi Note 11, Android 13"
+  - type: dropdown
+    id: network
+    attributes:
+      label: Connection when it happened
+      options: ["Online", "Offline / airplane mode", "Unstable"]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots or logs
+      description: Drag images here. Remove anything personal (your exact location, install id).

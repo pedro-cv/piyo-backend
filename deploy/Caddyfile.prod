@@ -1,0 +1,55 @@
+# Production: automatic HTTPS (Let's Encrypt) for {$DOMAIN}. Same routes as Caddyfile.local.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	@pmtiles path /tiles/santa-cruz.pmtiles
+	handle @pmtiles {
+		root * /srv
+		header Cache-Control "public, max-age=86400"
+		header Accept-Ranges bytes
+		file_server
+	}
+
+	handle_path /tiles/* {
+		header Access-Control-Allow-Origin *
+		header Cache-Control "public, max-age=604800"
+		reverse_proxy martin:3000
+	}
+
+	handle_path /assets/* {
+		root * /srv/assets
+		header Access-Control-Allow-Origin *
+		header Cache-Control "public, max-age=2592000"
+		file_server
+	}
+
+	handle {
+		reverse_proxy api:8080 {
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+		format json
+	}
+}
+
+# Redirect www. to the apex (optional; remove if you do not own the www record).
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

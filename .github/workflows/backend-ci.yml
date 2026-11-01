@@ -1,0 +1,40 @@
+name: backend
+# Works in the workspace (code under backend/) and in the public piyo-backend repo (code at the root).
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate module
+        run: |
+          if [ -f backend/go.mod ]; then echo "DIR=backend" >> "$GITHUB_ENV"; else echo "DIR=." >> "$GITHUB_ENV"; fi
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.DIR }}/go.mod
+          cache-dependency-path: ${{ env.DIR }}/go.sum
+      - name: gofmt
+        working-directory: ${{ env.DIR }}
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - name: go vet
+        working-directory: ${{ env.DIR }}
+        run: go vet ./...
+      - name: go test
+        working-directory: ${{ env.DIR }}
+        run: go test -race -count=1 ./...
+      - name: go build
+        working-directory: ${{ env.DIR }}
+        run: CGO_ENABLED=0 go build ./...
+      - name: Docker image builds
+        working-directory: ${{ env.DIR }}
+        run: docker build -t piyo/api:ci .

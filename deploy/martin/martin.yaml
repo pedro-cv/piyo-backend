@@ -1,0 +1,10 @@
+# Martin tile server: serves the city PMTiles as /santa-cruz/{z}/{x}/{y} plus
+# TileJSON at /santa-cruz. Caddy exposes it under /tiles/. Fonts and sprites
+# are static Protomaps assets served by Caddy under /assets/, so Martin only
+# does tiles.
+listen_addresses: "0.0.0.0:3000"
+worker_processes: 2
+cache_size_mb: 256
+pmtiles:
+  sources:
+    santa-cruz: /tiles/santa-cruz.pmtiles

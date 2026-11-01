@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule: { interval: weekly }
+    labels: [dependencies, backend]
+    groups:
+      go-minor-patch: { update-types: [minor, patch] }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+    labels: [dependencies, deploy]
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule: { interval: weekly }
+    labels: [dependencies, deploy]
+  - package-ecosystem: npm
+    directory: /deploy/tiles
+    schedule: { interval: monthly }
+    labels: [dependencies, deploy]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    labels: [dependencies, ci]

@@ -1,0 +1,35 @@
+name: Data error / Error en los datos
+description: A line, route, colour or name is wrong in the app. (Faster from the app: Reportar.)
+labels: ["data", "triage"]
+body:
+  - type: input
+    id: line
+    attributes:
+      label: Line / Línea
+      placeholder: "76, 41 Rojo, trufi 120…"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options: ["Route goes the wrong way / recorrido mal", "Line no longer runs / ya no pasa", "Missing line / falta una línea", "Wrong colour or name", "Ida/vuelta swapped", "Other"]
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where (streets, landmark, approximate coordinates)
+      description: Please no exact home addresses.
+    validations:
+      required: true
+  - type: input
+    id: dataset
+    attributes:
+      label: Dataset version (Datos y conexión)
+      placeholder: "v15"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Screenshot, a drawn route exported from Datos, or how you know (you ride it daily, etc.).

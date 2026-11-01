@@ -1,0 +1,86 @@
+{
+  "data_version": 12,
+  "generated_at": "2026-10-28T00:00:00Z",
+  "fare_bs": "2.50",
+  "lines": [
+    {
+      "line_id": "76",
+      "display": "76",
+      "name": "Radial 10 – Av. San Martín",
+      "mode": "micro",
+      "color": "#B52A1F",
+      "variants": [
+        {
+          "variant_id": "76-ida",
+          "direction": "ida",
+          "headsign": "Av. San Martín",
+          "polyline": [
+            [-17.7833, -63.1821],
+            [-17.7790, -63.1835],
+            [-17.7740, -63.1850],
+            [-17.7690, -63.1870],
+            [-17.7630, -63.1850]
+          ],
+          "streets": ["Radial 10", "Av. San Martín"]
+        },
+        {
+          "variant_id": "76-vuelta",
+          "direction": "vuelta",
+          "headsign": "Plaza 24 de Septiembre",
+          "polyline": [
+            [-17.7630, -63.1850],
+            [-17.7690, -63.1870],
+            [-17.7740, -63.1850],
+            [-17.7790, -63.1835],
+            [-17.7833, -63.1821]
+          ],
+          "streets": ["Av. San Martín", "Radial 10"]
+        }
+      ]
+    },
+    {
+      "line_id": "18",
+      "display": "18",
+      "name": "Av. Cañoto – Av. Banzer",
+      "mode": "micro",
+      "color": "#1F6FB5",
+      "variants": [
+        {
+          "variant_id": "18-ida",
+          "direction": "ida",
+          "headsign": "Av. Banzer",
+          "polyline": [
+            [-17.7860, -63.1900],
+            [-17.7800, -63.1880],
+            [-17.7720, -63.1840],
+            [-17.7650, -63.1800],
+            [-17.7580, -63.1760]
+          ],
+          "streets": ["Av. Cañoto", "Av. Banzer"]
+        }
+      ]
+    },
+    {
+      "line_id": "T-plan3000",
+      "display": "Plan 3000",
+      "name": "Trufi Plan 3000 – Centro",
+      "mode": "trufi",
+      "color": "#2E8B57",
+      "variants": [
+        {
+          "variant_id": "T-plan3000-ida",
+          "direction": "ida",
+          "headsign": "Centro",
+          "polyline": [
+            [-17.8400, -63.1400],
+            [-17.8250, -63.1500],
+            [-17.8100, -63.1620],
+            [-17.7950, -63.1740],
+            [-17.7850, -63.1810]
+          ],
+          "streets": ["Av. Paurito", "Av. Brasil"]
+        }
+      ]
+    }
+  ]
+}

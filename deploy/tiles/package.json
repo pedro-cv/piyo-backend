@@ -1,0 +1,9 @@
+{
+  "name": "piyo-map-style",
+  "private": true,
+  "type": "module",
+  "description": "Generates the MapLibre style for the self-hosted Piyo map (Protomaps basemaps layers).",
+  "dependencies": {
+    "@protomaps/basemaps": "^5.0.0"
+  }
+}

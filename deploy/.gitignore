@@ -1,0 +1,5 @@
+.env
+data/*
+!data/.gitkeep
+tiles/node_modules/
+tiles/package-lock.json

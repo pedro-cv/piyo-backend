@@ -1,0 +1,37 @@
+# gitleaks configuration (CI: .github/workflows/secret-scan.yml; local: `gitleaks git --redact`).
+title = "piyo"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "piyo-admin-token-or-salt"
+description = "Real ADMIN_TOKEN / HASH_SALT / POSTGRES_PASSWORD value"
+regex = '''(?i)(ADMIN_TOKEN|HASH_SALT|POSTGRES_PASSWORD)\s*[:=]\s*["']?([A-Za-z0-9+/=_-]{24,})'''
+secretGroup = 2
+keywords = ["ADMIN_TOKEN", "HASH_SALT", "POSTGRES_PASSWORD"]
+
+[[rules]]
+id = "piyo-postgres-dsn-with-password"
+description = "PostgreSQL DSN carrying a literal password"
+regex = '''postgres(ql)?://[^:/\s]+:([^@\s$<{]{8,})@'''
+secretGroup = 2
+keywords = ["postgres://", "postgresql://"]
+
+[allowlist]
+description = "Placeholders, fixtures and binary data"
+paths = [
+  '''\.env\.example$''',
+  '''keys\.properties\.example$''',
+  '''dataset-seed\.json$''',
+  '''static/lines-v\d+\.json$''',
+  '''design/canvas/''',
+  '''\.(png|jpg|webp|pmtiles|gz)$''',
+]
+regexes = [
+  '''change-me''',
+  '''dev-admin-token''',
+  '''dev-salt''',
+  '''\$\{[A-Z_]+(:-[^}]*)?\}''',
+  '''<POSTGRES_PASSWORD[^>]*>''',
+]
