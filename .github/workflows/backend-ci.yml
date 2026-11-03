@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Locate module
         run: |
           if [ -f backend/go.mod ]; then echo "DIR=backend" >> "$GITHUB_ENV"; else echo "DIR=." >> "$GITHUB_ENV"; fi
