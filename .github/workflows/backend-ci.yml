@@ -19,7 +19,7 @@ jobs:
       - name: Locate module
         run: |
           if [ -f backend/go.mod ]; then echo "DIR=backend" >> "$GITHUB_ENV"; else echo "DIR=." >> "$GITHUB_ENV"; fi
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ${{ env.DIR }}/go.mod
           cache-dependency-path: ${{ env.DIR }}/go.sum

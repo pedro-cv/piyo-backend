@@ -7,7 +7,7 @@ name: piyo
 
 services:
   db:
-    image: postgis/postgis:16-3.5
+    image: postgis/postgis:16-3.6
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-piyo}
@@ -67,7 +67,7 @@ services:
       - "3000"
 
   caddy:
-    image: caddy:2.9
+    image: caddy:2.11
     restart: unless-stopped
     depends_on:
       - api
