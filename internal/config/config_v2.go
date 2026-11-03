@@ -50,6 +50,11 @@ type V2 struct {
 	MaxSuggestionsPerDay int
 	// MaxContributionsPerMonth caps POST /v1/contributions per device and UTC month.
 	MaxContributionsPerMonth int
+
+	// FCMProjectID enables push notifications (Firebase project id); empty disables them.
+	FCMProjectID string
+	// FCMCredentialsFile is a service-account JSON key; empty uses the GCP metadata server (Cloud Run).
+	FCMCredentialsFile string
 }
 
 func (c *Config) loadV2() error {
@@ -62,6 +67,8 @@ func (c *Config) loadV2() error {
 	c.PublicBaseURL = strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/")
 	c.TilesPublicURL = strings.TrimRight(os.Getenv("TILES_PUBLIC_URL"), "/")
 	c.AssetsPublicURL = strings.TrimRight(os.Getenv("ASSETS_PUBLIC_URL"), "/")
+	c.FCMProjectID = strings.TrimSpace(os.Getenv("FCM_PROJECT_ID"))
+	c.FCMCredentialsFile = strings.TrimSpace(os.Getenv("FCM_CREDENTIALS_FILE"))
 	if c.MaxSuggestionsPerDay, err = envInt("MAX_SUGGESTIONS_PER_DAY", DefaultMaxSuggestionsPerDay); err != nil {
 		return err
 	}

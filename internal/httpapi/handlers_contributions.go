@@ -354,6 +354,7 @@ func (s *Server) reviewContribution(w http.ResponseWriter, r *http.Request, stat
 		return
 	}
 	resp := map[string]any{"contribution": c.Summary()}
+	s.notifyDevice(c.DeviceHash, map[string]string{"type": "contribution_" + status, "id": c.ID})
 	if status == model.StatusRejected {
 		until, err := s.maybeAutoBlock(r, c.DeviceHash, now)
 		if err != nil {

@@ -73,6 +73,14 @@ type Store interface {
 	DeleteBlock(ctx context.Context, deviceHash string) error
 	ListBlocks(ctx context.Context) ([]model.Block, error)
 
+	// Push tokens (FCM; one per device, SetPushToken upserts). GetPushToken
+	// returns "" and no error when the device has none.
+	SetPushToken(ctx context.Context, deviceHash, token string, updatedAt time.Time) error
+	GetPushToken(ctx context.Context, deviceHash string) (string, error)
+	DeletePushToken(ctx context.Context, deviceHash string) error
+	// DeletePushTokensBefore purges tokens not refreshed since before.
+	DeletePushTokensBefore(ctx context.Context, before time.Time) (int, error)
+
 	Close() error
 }
 
