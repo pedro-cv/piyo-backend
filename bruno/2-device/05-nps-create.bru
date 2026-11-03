@@ -1,0 +1,34 @@
+meta {
+  name: nps create
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/v1/nps
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "score": 9,
+    "reasons": [
+      "me_sirvio"
+    ],
+    "comment": "Smoke test",
+    "app_version": "1",
+    "data_version": 15,
+    "device_class": "android-mid"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+}

@@ -1,0 +1,19 @@
+meta {
+  name: contributions mine
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/v1/contributions/mine
+  body: none
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+}
+
+assert {
+  res.status: eq 200
+}

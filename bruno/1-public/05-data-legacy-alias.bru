@@ -1,0 +1,23 @@
+meta {
+  name: data legacy alias
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/v1/data/lines-v{{datasetVersion}}.json
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  datasetVersion: 15
+}
+
+assert {
+  res.status: in [200, 404]
+}
+
+docs {
+  Legacy alias kept for old app builds; 404 is acceptable when the release uses the new package name.
+}

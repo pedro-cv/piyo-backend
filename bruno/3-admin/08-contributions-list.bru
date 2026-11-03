@@ -1,0 +1,19 @@
+meta {
+  name: contributions list
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/v1/admin/contributions?status=pending&limit=50
+  body: none
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+}
+
+assert {
+  res.status: eq 200
+}

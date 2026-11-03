@@ -1,0 +1,62 @@
+meta {
+  name: contribution create
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/v1/contributions
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "provider_name": "Smoke test",
+    "base_dataset_version": 15,
+    "app_version": "1",
+    "comment": "Smoke test",
+    "lines": [
+      {
+        "line_id": "smoke-1",
+        "display": "S1",
+        "name": "Smoke 1",
+        "mode": "micro",
+        "color": "#2A6A47"
+      }
+    ],
+    "variants": [
+      {
+        "variant_id": "smoke-1-ida",
+        "line_id": "smoke-1",
+        "direction": "ida",
+        "headsign": "Centro",
+        "polyline": "rhpkBbgs`KzObQ~Wf^"
+      }
+    ],
+    "edits": {
+      "smoke-1": {
+        "op": "add",
+        "based_on_version": 15
+      }
+    }
+  }
+}
+
+vars:post-response {
+  contributionId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+}
+
+docs {
+  Polyline = 3 points in the centre of Santa Cruz. 3 per device per UTC month (429 afterwards).
+}

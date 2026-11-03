@@ -1,0 +1,10 @@
+docs {
+  # piyo API smoke test
+
+  Every endpoint of the API, in the order of a smoke test. Select an environment, then run the
+  folders in order with the collection runner: 1-public, 2-device, 3-admin.
+
+  Variables set by the requests themselves (post-response): datasetVersion, reportId, suggestionId,
+  contributionId, deviceHash. Nothing here is sensitive: adminToken is a secret variable stored only
+  in your local Bruno profile, never in this folder.
+}

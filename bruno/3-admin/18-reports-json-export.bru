@@ -1,0 +1,19 @@
+meta {
+  name: reports json export
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/v1/admin/reports.json
+  body: none
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+}
+
+assert {
+  res.status: eq 200
+}

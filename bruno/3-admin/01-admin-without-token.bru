@@ -1,0 +1,15 @@
+meta {
+  name: admin without token
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/admin/reports
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 401
+}

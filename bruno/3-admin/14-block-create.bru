@@ -1,0 +1,33 @@
+meta {
+  name: block create
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/blocks
+  body: json
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "install_id": "smoke-device-0002",
+    "days": 1,
+    "reason": "smoke test"
+  }
+}
+
+vars:post-response {
+  deviceHash: res.body.device_hash
+}
+
+assert {
+  res.status: eq 201
+  res.body.device_hash: isDefined
+}

@@ -1,0 +1,22 @@
+meta {
+  name: manifest
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/v1/manifest
+  body: none
+  auth: none
+}
+
+vars:post-response {
+  datasetVersion: res.body.version
+  datasetUrl: res.body.url
+}
+
+assert {
+  res.status: eq 200
+  res.body.sha256: isDefined
+  res.body.url: isDefined
+}

@@ -1,0 +1,35 @@
+meta {
+  name: report create invalid
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/v1/reports
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "stop",
+    "lat": 10.0,
+    "lng": 10.0,
+    "app_version": "1",
+    "data_version": 15
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq validation_error
+}
+
+docs {
+  Coordinates outside METRO_BOUNDS must be rejected.
+}

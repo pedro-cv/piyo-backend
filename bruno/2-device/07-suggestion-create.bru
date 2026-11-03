@@ -1,0 +1,49 @@
+meta {
+  name: suggestion create
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/v1/suggestions
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "kind": "stop_add",
+    "line_id": "76",
+    "dataset_version": 15,
+    "lat": -17.7833,
+    "lng": -63.1821,
+    "payload": {
+      "points": [
+        [
+          -17.7833,
+          -63.1821
+        ]
+      ]
+    },
+    "comment": "Smoke test: parada que falta",
+    "app_version": "1"
+  }
+}
+
+vars:post-response {
+  suggestionId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+}
+
+docs {
+  Kinds: polyline, stop_add, stop_move, stop_remove, line_meta, missing_line, other. 5 per device per UTC day.
+}

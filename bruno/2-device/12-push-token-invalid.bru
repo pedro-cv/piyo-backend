@@ -1,0 +1,27 @@
+meta {
+  name: push token invalid
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{baseUrl}}/v1/push/token
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "token": "short token"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq validation_error
+}

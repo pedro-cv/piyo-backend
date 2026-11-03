@@ -1,0 +1,19 @@
+meta {
+  name: map info
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/v1/map
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: in [200, 404]
+}
+
+docs {
+  404 'map style not generated yet' is expected until deploy/tiles/build-tiles.sh has run.
+}

@@ -1,0 +1,26 @@
+meta {
+  name: suggestion accept
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/suggestions/{{suggestionId}}/accept
+  body: json
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "note": "smoke"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

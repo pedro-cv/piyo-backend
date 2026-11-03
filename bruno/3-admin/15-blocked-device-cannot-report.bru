@@ -1,0 +1,35 @@
+meta {
+  name: blocked device cannot report
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/v1/reports
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: smoke-device-0002
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "stop",
+    "lat": -17.7833,
+    "lng": -63.1821,
+    "app_version": "1",
+    "data_version": 15
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq blocked
+}
+
+docs {
+  Uses the install id blocked by the previous request.
+}
