@@ -1,0 +1,15 @@
+meta {
+  name: map style
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/v1/map/style.json
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: in [200, 404]
+}

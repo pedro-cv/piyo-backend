@@ -1,0 +1,32 @@
+meta {
+  name: push token register
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/v1/push/token
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "token": "smoke-test-token:APA91bSmokeTestTokenNotARealDevice0001"
+  }
+}
+
+assert {
+  res.status: eq 204
+}
+
+docs {
+  Stores an FCM token for this device (upsert, keyed by the salted device hash). The token here is
+  fake: it only checks the endpoint. 13-push-token-delete removes it again, so the admin folder never
+  sends to it. Real tokens are registered by the app (Datos → notifications on).
+}

@@ -1,0 +1,20 @@
+meta {
+  name: reports quota
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/reports/quota
+  body: none
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.limit: isDefined
+}

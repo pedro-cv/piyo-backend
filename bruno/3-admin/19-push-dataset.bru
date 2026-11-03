@@ -1,0 +1,32 @@
+meta {
+  name: push dataset release
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/push/dataset
+  body: json
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 200
+  res.body.sent: eq true
+}
+
+docs {
+  Sends a data message to the "dataset" topic (every phone with notifications on). Empty body = the
+  latest release on the server; {"version": 15} to name one. Phones only show it when their installed
+  dataset is older than that version, so to see it on a test phone send a version above the phone's.
+  503 push_disabled: FCM_PROJECT_ID not set. 502 push_failed: FCM rejected it (role/API, see FREE_TIER §2b).
+}

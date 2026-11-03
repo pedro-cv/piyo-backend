@@ -1,0 +1,41 @@
+meta {
+  name: report create
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/v1/reports
+  body: json
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "stop",
+    "lat": -17.7833,
+    "lng": -63.1821,
+    "line_id": "76",
+    "comment": "Smoke test: parada movida",
+    "app_version": "1",
+    "data_version": 15
+  }
+}
+
+vars:post-response {
+  reportId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: isDefined
+}
+
+docs {
+  3 per device per UTC day (429 quota_exceeded afterwards: change installId).
+}

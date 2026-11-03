@@ -1,0 +1,19 @@
+meta {
+  name: report accept
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/reports/{{reportId}}/accept
+  body: none
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+}
+
+assert {
+  res.status: eq 200
+}

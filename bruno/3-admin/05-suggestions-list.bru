@@ -1,0 +1,19 @@
+meta {
+  name: suggestions list
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/v1/admin/suggestions?status=pending&limit=50
+  body: none
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+}
+
+assert {
+  res.status: eq 200
+}

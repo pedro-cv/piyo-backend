@@ -1,0 +1,19 @@
+meta {
+  name: block delete
+  type: http
+  seq: 16
+}
+
+delete {
+  url: {{baseUrl}}/v1/admin/blocks/{{deviceHash}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+}
+
+assert {
+  res.status: eq 204
+}

@@ -31,6 +31,7 @@ import (
 	"piyo-backend/internal/config"
 	"piyo-backend/internal/dataset"
 	"piyo-backend/internal/model"
+	"piyo-backend/internal/push"
 	"piyo-backend/internal/ratelimit"
 	"piyo-backend/internal/store"
 	"piyo-backend/static"
@@ -47,14 +48,23 @@ type Server struct {
 	log      *slog.Logger
 	manifest model.Manifest   // legacy embedded-bundle manifest (fallback)
 	catalog  *dataset.Catalog // releases on disk (nil when RELEASES_DIR is empty)
+	push     push.Sender
 }
 
-// NewHandler builds the complete http.Handler for the API.
+// NewHandler builds the complete http.Handler for the API with push disabled.
 func NewHandler(cfg config.Config, st store.Store, limiter *ratelimit.Limiter, logger *slog.Logger) http.Handler {
+	return NewHandlerWithPush(cfg, st, limiter, logger, nil)
+}
+
+// NewHandlerWithPush is NewHandler with a push sender (nil disables push).
+func NewHandlerWithPush(cfg config.Config, st store.Store, limiter *ratelimit.Limiter, logger *slog.Logger, sender push.Sender) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	s := &Server{cfg: cfg, store: st, limiter: limiter, log: logger}
+	if sender == nil {
+		sender = push.Noop{}
+	}
+	s := &Server{cfg: cfg, store: st, limiter: limiter, log: logger, push: sender}
 	s.manifest = buildManifest(cfg, logger)
 	if cfg.ReleasesDir != "" {
 		s.catalog = dataset.NewCatalog(cfg.ReleasesDir)
@@ -98,6 +108,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/contributions/quota", s.handleContributionQuota)
 	mux.HandleFunc("GET /v1/contributions/mine", s.handleMyContributions)
 	mux.HandleFunc("POST /v1/contributions", s.handleCreateContribution)
+	mux.HandleFunc("PUT /v1/push/token", s.handleSetPushToken)
+	mux.HandleFunc("DELETE /v1/push/token", s.handleDeletePushToken)
 
 	// Admin (X-Admin-Token)
 	admin := s.requireAdmin
@@ -112,6 +124,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/admin/contributions/{id}/accept", admin(s.handleAdminAcceptContribution))
 	mux.HandleFunc("POST /v1/admin/contributions/{id}/reject", admin(s.handleAdminRejectContribution))
 	mux.HandleFunc("GET /v1/admin/datasets", admin(s.handleAdminDatasets))
+	mux.HandleFunc("POST /v1/admin/push/dataset", admin(s.handleAdminPushDataset))
 	mux.HandleFunc("GET /v1/admin/blocks", admin(s.handleAdminListBlocks))
 	mux.HandleFunc("POST /v1/admin/blocks", admin(s.handleAdminCreateBlock))
 	mux.HandleFunc("DELETE /v1/admin/blocks/{device_hash}", admin(s.handleAdminDeleteBlock))
@@ -271,7 +284,7 @@ func (s *Server) cors(next http.Handler) http.Handler {
 				w.Header().Add("Vary", "Origin")
 			}
 			if allowAll || allowed[origin] {
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Install-Id, X-Admin-Token")
 				w.Header().Set("Access-Control-Expose-Headers", "X-Request-Id")
 				w.Header().Set("Access-Control-Max-Age", "600")

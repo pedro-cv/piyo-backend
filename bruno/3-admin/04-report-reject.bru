@@ -1,0 +1,23 @@
+meta {
+  name: report reject
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/reports/{{reportId}}/reject
+  body: none
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+}
+
+assert {
+  res.status: in [200, 409]
+}
+
+docs {
+  Rejecting an already accepted report may be refused; the point is that the route answers. 3 rejections in 90 days block the device for 30 days.
+}

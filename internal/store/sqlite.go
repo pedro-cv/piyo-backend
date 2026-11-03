@@ -64,6 +64,14 @@ CREATE TABLE IF NOT EXISTS blocks (
 	reason      TEXT NOT NULL DEFAULT '',
 	created_at  TEXT NOT NULL
 );
+
+-- FCM token per device (docs/implementation/PRIVACY.md §push).
+CREATE TABLE IF NOT EXISTS push_tokens (
+	device_hash TEXT PRIMARY KEY,
+	token       TEXT NOT NULL,
+	updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_updated ON push_tokens(updated_at);
 `
 
 // SQLite is a Store backed by a single SQLite file.

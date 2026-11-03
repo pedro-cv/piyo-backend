@@ -1,0 +1,23 @@
+meta {
+  name: push token delete
+  type: http
+  seq: 13
+}
+
+delete {
+  url: {{baseUrl}}/v1/push/token
+  body: none
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+}
+
+assert {
+  res.status: eq 204
+}
+
+docs {
+  What the app calls when notifications are turned off. Idempotent: 204 even if nothing was stored.
+}

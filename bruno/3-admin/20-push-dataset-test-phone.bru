@@ -1,0 +1,32 @@
+meta {
+  name: push dataset (test phone, forces display)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/push/dataset
+  body: json
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "version": 9999
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Manual test only (skip in the runner against production: every subscribed phone shows "Hay datos
+  nuevos"). Version 9999 is newer than any phone, so the notification always appears; tapping
+  "Buscar actualización" afterwards finds nothing new, which is harmless.
+}

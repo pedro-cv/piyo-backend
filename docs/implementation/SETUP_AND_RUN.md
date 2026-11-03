@@ -276,6 +276,11 @@ There are no product flavors and no mock data since iteration 3 (the `src/dev` m
 | `MAP_STYLE_URL` | `MAP_STYLE_URL` | empty (= style from the API) | `MapLibreMapProvider` |
 | `GEOCODER_URL` | `GEOCODER_URL` | `https://photon.komoot.io/api/` | `PhotonGeocoder` (text search) |
 
+Push (optional): `FCM_PROJECT_ID` (empty = push off) enables FCM; on Cloud Run the runtime service account sends
+through the metadata server (role *Firebase Cloud Messaging API Admin*, granted by `deploy/cloudrun/deploy.sh`); on a
+VPS set `FCM_CREDENTIALS_FILE` to a service-account JSON mounted from outside the repo. App side: the four
+`FIREBASE_*` keys in `app/keys.properties`. Announce a release with `POST /v1/admin/push/dataset`.
+
 Backend (compose `api` service / `.env`): `MAX_CONTRIBUTIONS_PER_MONTH` (default 3) caps route contributions per device and UTC month; the PostgreSQL table is created by `backend/internal/store/postgres/migrations/002_contributions.sql` on start (idempotent), SQLite creates it lazily. Review with the admin endpoints listed in `backend/README.md`.
 
 The dependency graph is built once in `app/app/src/main/java/bo/piyo/app/di/AppModule.kt`: `AssetLinesRepository` (bundled seed + downloaded releases, exposed as `officialLines`) wrapped by `EffectiveLinesRepository` (applies the active local provider from `ProvidersRepository`; this is `lines`, what screens and the planner use), `HttpContributionsRepository` (`/v1/contributions`), `AndroidLocationProvider` (framework `LocationManager`, falls back to the Plaza 24 de Septiembre when there is no permission or fix), `MapLibreMapProvider` + `PhotonGeocoder`, `HttpReportsRepository`, `HttpNpsRepository`, `HttpManifestRepository`. Variants are only `debug` and `release`; the application id is `bo.piyo.app` for both. The backend's `DEV_MODE` seed (`backend/internal/seed`: demo devices, sample reports and NPS rows) still exists for backend-only testing and is unrelated to the app build.

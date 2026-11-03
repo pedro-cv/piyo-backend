@@ -19,6 +19,7 @@ type Memory struct {
 	blocks      map[string]model.Block
 	suggestions map[string]*model.Suggestion
 	contribs    map[string]*model.Contribution
+	pushTokens  map[string]pushToken
 }
 
 // NewMemory returns an empty in-memory store.

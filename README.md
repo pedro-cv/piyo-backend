@@ -53,9 +53,12 @@ Flags `-port`, `-dev`, `-sqlite` override the environment.
 | GET | `/v1/contributions/quota` | install id | `{"limit":3,"remaining":n,"resets_at":<1st of next UTC month>,"blocked_until":null,"max_routes":10}` |
 | POST | `/v1/contributions` | install id | 201 `{"id":"c_...","remaining":n,"resets_at":...}`; 400 validation, 403 blocked, 413 too large, 429 monthly quota. Body cap 512 KB on this route only |
 | GET | `/v1/contributions/mine` | install id | this device's contributions: id, status, review_note, route_ids (no payloads) |
+| PUT | `/v1/push/token` | install id | 204; body `{"token":"<FCM registration token>"}`; one row per device (upsert), so no quota beyond the per-IP limit; 400 validation |
+| DELETE | `/v1/push/token` | install id | 204 (notifications turned off) |
 | GET | `/v1/admin/contributions?status=pending&limit=100` | admin | summaries (no payload) |
 | GET | `/v1/admin/contributions/{id}` | admin | full contribution with payload (`lines`, `variants`, `edits.<line_id>.before` = original polylines) |
 | POST | `/v1/admin/contributions/{id}/accept` / `reject` | admin | 200 summary; body `{"note":"..."}`; rejections count towards the auto-block |
+| POST | `/v1/admin/push/dataset` | admin | 200 `{"sent":true,"topic":"dataset","version":N}`; body `{"version":N}` optional (default latest release); 503 `push_disabled` without `FCM_PROJECT_ID`, 502 `push_failed` |
 | GET | `/v1/admin/nps.csv` | admin | CSV export |
 | GET | `/v1/admin/reports.json` | admin | JSON export |
 
@@ -67,6 +70,13 @@ NPS body: `{"score":0..10,"reasons":["faltan_lineas","recorridos_mal","el_mapa",
 Contribution body (routes from a local data provider, docs/implementation/CONTRIBUTIONS_DESIGN.md):
 `{"provider_name":"Mis rutas","base_dataset_version":15,"app_version":"1","comment"?:"<=500","lines":[{line_id,display,name,mode,color?}],"variants":[{variant_id,line_id,direction,headsign,origin?,polyline,streets?}],"edits":{"<line_id>":{"op":"add|update","based_on_version":15,"before":{"<variant_id>":"<polyline>"}}}}`.
 Limits: ≤ 10 lines, ≤ 600 points per variant, every point inside `METRO_BOUNDS`, `MAX_CONTRIBUTIONS_PER_MONTH` (default 3) per device per UTC month.
+
+Push (optional, `FCM_PROJECT_ID`): when an admin accepts or rejects a contribution, or accepts a report, the
+device's registered token gets a data-only FCM message `{"type":"contribution_accepted|contribution_rejected|report_accepted","id":"..."}`;
+`/v1/admin/push/dataset` sends `{"type":"dataset","version":"N"}` to the `dataset` topic. Messages carry no
+text (the app owns the copy). Unregistered tokens are deleted on the first failed send, tokens not refreshed
+for 60 days are purged daily. Credentials: the Cloud Run service account (role *Firebase Cloud Messaging API
+Admin*) via the metadata server, or `FCM_CREDENTIALS_FILE` (service-account JSON, VPS only, never in git).
 
 ## curl
 
@@ -94,6 +104,24 @@ curl -X POST -H "$A" -H 'Content-Type: application/json' -d '{"note":"verificado
 curl -H "$A" $B/admin/nps.csv
 curl -H "$A" $B/admin/reports.json
 ```
+
+## Smoke test with Bruno
+
+`bruno/` is a [Bruno](https://www.usebruno.com) collection with every endpoint above, ordered as a smoke
+test (`1-public`, `2-device`, `3-admin`). Open the folder in Bruno, pick an environment and run the
+collection runner; or from a terminal:
+
+```sh
+cd backend/bruno
+npx @usebruno/cli run --env dev -r                       # against DEV_MODE (admin token dev-admin-token)
+npx @usebruno/cli run --env local-prod -r --env-var adminToken=$ADMIN_TOKEN   # DEV_MODE=false on your PC
+npx @usebruno/cli run --env server -r --env-var baseUrl=https://api.<domain> --env-var adminToken=$ADMIN_TOKEN
+```
+
+The environments `local-prod` and `server` declare `adminToken` as a secret variable: Bruno keeps its value
+in your local profile, never in the repo. Quotas are real: the report request passes 3 times per UTC day per
+`installId`, the contribution 3 times per month; change `installId` or restart the DEV_MODE server (memory
+store) to reset them.
 
 ## Issue filing
 

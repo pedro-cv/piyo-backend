@@ -1,0 +1,29 @@
+meta {
+  name: report without install id
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/v1/reports
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "stop",
+    "lat": -17.7833,
+    "lng": -63.1821,
+    "app_version": "1",
+    "data_version": 15
+  }
+}
+
+assert {
+  res.status: in [400, 401]
+}

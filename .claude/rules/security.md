@@ -7,7 +7,8 @@
 - The API stores `sha256(HASH_SALT + install_id)` only. Never log IPs, install ids, raw bodies of
   reports or contributions. Logs are structured (`slog`) and must stay free of personal data.
 - The app has no accounts, analytics, ads or crash reporters. Do not add Firebase, Play Services
-  analytics or any SDK that phones home. Location is used in memory only (`PRIVACY.md`).
+  analytics or any SDK that phones home. Sole exception: `firebase-messaging` for opt-in push
+  (PRIVACY.md §Push); no other Firebase product. Location is used in memory only (`PRIVACY.md`).
 - Admin endpoints are protected by `X-Admin-Token`; new admin routes go through the `admin(...)`
   wrapper in `backend/internal/httpapi/server.go`.
 - Every request body has a size cap (`bodyLimit`), every write endpoint a quota or rate limit. A new

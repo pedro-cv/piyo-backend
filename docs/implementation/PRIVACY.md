@@ -15,7 +15,7 @@ Piyo has no accounts, no analytics and no ads (docs/02 principle 2, docs/03 §5)
 | Last computed itineraries | memory (`TripSession`) | Resultados/Ruta screens | Until the Activity dies |
 | GPS position | memory | "Mi ubicación", "pasan cerca" | Never persisted, never sent |
 
-Location permission is requested lazily (not implemented tonight: the prod `AndroidLocationProvider` reads the last known fix only if permission was granted, otherwise uses the Plaza as origin). Coordinates are never included in NPS; they are included in a **report** only because the report is about a place.
+Location permission (while using the app, precise or approximate) is asked once by the app on its own, on the first visit to Inicio; after that only when the user taps "Centrar en mi ubicación" or the Ubicación row in Ajustes (which opens the system page if Android no longer shows the dialog). Without permission the app has no position at all (no "you are here" dot; trips start from the city centre unless the user picks an origin). With it, `AndroidLocationProvider` uses the last known fix and replaces it with one fresh fix; continuous updates run only during an active trip. Coordinates are never included in NPS; they are included in a **report** only because the report is about a place.
 
 ## 2. Sent to the backend
 
@@ -30,7 +30,9 @@ Location permission is requested lazily (not implemented tonight: the prod `Andr
 
 | **Contributions** (`POST /v1/contributions`, iteration 4) | only when the user taps "Enviar aportes" | | The routes the user picked from their local provider (`lines`, `variants` with polylines, `edits.before` original polylines), the provider **name** they typed, `base_dataset_version`, optional `comment` ≤ 500, `app_version`, and the same `X-Install-Id` header. The provider file itself never contains the install id, so an exported/shared file identifies nobody. |
 
-Local data providers (`filesDir/providers/*.json`), saved places with icon/colour and the notification setting stay on the phone (§1). The notification is posted locally after a dataset update; no push token exists.
+| **Push token** (`PUT /v1/push/token`, 2026-11-01) | only while the notification switch is on *and* the system permission is granted | | The FCM registration token, with the same `X-Install-Id` header. See §Push. |
+
+Local data providers (`filesDir/providers/*.json`), saved places with icon/colour and the notification setting stay on the phone (§1).
 
 Not sent: user agent beyond OkHttp's default (TODO next iteration: set a neutral UA), contacts, photos, account, language, timezone, battery, other apps.
 
@@ -42,7 +44,28 @@ Not sent: user agent beyond OkHttp's default (TODO next iteration: set a neutral
 - Contributions: device hash, provider name, base dataset version, route ids, payload (routes), comment, app version, status, review note, timestamps.
 - Blocks: device hash, until, reason.
 - IP addresses: used in memory for the per-IP rate limiter and discarded; not logged, not persisted. The access log records method, path, status and duration only.
-- FCM tokens (future): per docs/03 §8, stored `report → token` only until the data release that applies the report, then deleted; max 90 days. Not implemented tonight.
+- Push tokens: device hash → FCM token, one row per device (`push_tokens`). Deleted when the user turns notifications off, when FCM reports the token unregistered, and when it has not been refreshed for 60 days. Never logged.
+
+## Push (Firebase Cloud Messaging), added 2026-11-01
+
+Decision: the maintainer chose FCM for review-result and new-release notifications, as the single exception to
+"no SDK that phones home" (Messaging only; no Analytics, Crashlytics, Remote Config).
+
+- **When a token exists:** the app ships `firebase_messaging_auto_init_enabled=false`. Firebase is not even
+  initialised until the notification switch is on and `POST_NOTIFICATIONS` is granted; then `PushManager` gets
+  a token, sends it to the backend and subscribes to the `dataset` topic. It re-sends weekly. Switching off
+  (or revoking the permission) unsubscribes, deletes the token on the phone and calls `DELETE /v1/push/token`.
+- **What Google sees:** the FCM token, the Firebase installation id FCM needs, the device's IP when it keeps
+  the FCM connection, and the message payloads. Payloads are data-only with no text and no personal data:
+  `{"type":"contribution_accepted|contribution_rejected|report_accepted","id":"c_…"}` to one device, or
+  `{"type":"dataset","version":"16"}` to the topic. The notification text comes from `strings.xml` on the phone.
+- **What the backend sees:** the token, tied to the existing salted device hash. No new identifier is created
+  and nothing joins the token to anything beyond what the device hash already joins (its own reports and
+  contributions). Retention: see §3.
+- **Requires Google Play services** on the phone; without them push silently does nothing and the rest of
+  the app is unaffected.
+- **Play data-safety form:** declare "Device or other IDs" (FCM token), purpose "App functionality", not
+  shared, deletable by turning notifications off.
 
 ## 4. Abuse control, and why it is not identity
 
@@ -55,7 +78,8 @@ Not sent: user agent beyond OkHttp's default (TODO next iteration: set a neutral
 | Piyo map server (Martin + Caddy, same host as the API) or OpenFreeMap when `MAP_STYLE_URL` points to it | Map on screen | Tile requests: IP, tile coordinates (coarse area being viewed), User-Agent |
 | Photon (komoot) | Typing in search | Query text, bias coordinates (the user's position or the Plaza), IP, User-Agent `Piyo/<version>` |
 | Google Play services fonts provider | Font load | Standard provider request on the device; no app data |
-| Piyo backend | Reports, NPS, manifest | Section 2 |
+| Piyo backend | Reports, NPS, manifest, push token | Section 2 |
+| Google (Firebase Cloud Messaging) | Only while notifications are on | §Push |
 
 Since iteration 3 there is a single build; there is no offline-only flavor. With no network the app still works for lines and routing from the bundled dataset and contacts nobody.
 

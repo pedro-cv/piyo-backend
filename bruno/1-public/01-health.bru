@@ -1,0 +1,24 @@
+meta {
+  name: health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/health
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: https://piyo-api-il3svi7s5a-ue.a.run.app
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq ok
+}
+
+docs {
+  Expect mode=prod, store=sqlite and dataset_source=releases once RELEASES_DIR is populated.
+}

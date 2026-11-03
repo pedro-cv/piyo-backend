@@ -1,0 +1,26 @@
+meta {
+  name: contribution accept
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/contributions/{{contributionId}}/accept
+  body: json
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "note": "smoke: verificado"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

@@ -1,0 +1,28 @@
+# Files `gcloud run deploy --source .` must NOT upload to Cloud Build.
+# This file exists so gcloud does not fall back to .gitignore, which excludes releases/:
+# the Dockerfile bakes releases/ into the image, so it has to be uploaded.
+.gcloudignore
+.git
+.github
+.claude
+.githooks
+# secrets and local config (never leave the PC)
+.env
+.env.*
+!.env.example
+deploy/.env
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.json.key
+# local databases, build output, generated map data
+*.db
+*.db-*
+bin/
+data/
+deploy/data/
+deploy/tiles/node_modules/
+coverage.out
+*.log

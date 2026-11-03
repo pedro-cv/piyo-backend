@@ -104,6 +104,8 @@ func (s *Server) reviewReport(w http.ResponseWriter, r *http.Request, status str
 	out := reviewedReport{Report: *rep}
 
 	if status == model.StatusAccepted {
+		// Only acceptances are pushed: a rejected report has nothing to show the user.
+		s.notifyDevice(rep.DeviceHash, map[string]string{"type": "report_accepted", "id": rep.ID})
 		// Next iteration: a GitHubIssueFiler. Today this only logs.
 		filer := export.LogIssueFiler{Log: s.log}
 		if _, err := filer.FileIssue(ctx, *rep); err != nil {

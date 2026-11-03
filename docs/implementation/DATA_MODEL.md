@@ -150,6 +150,11 @@ Design: `CONTRIBUTIONS_DESIGN.md`. Summary of the shapes that matter for data wo
 - New line ids from the app: `u-<display>-<4 hex>`; variant ids `<line_id>:<direction>`. Updated official lines keep their ids,
   so favourites, history and transfer links stay valid.
 
+Push tokens (2026-11-01, `migrations/003_push_tokens.sql`; same table in SQLite `sqlite.go`): `push_tokens(device_hash
+PK, token, updated_at)`. One FCM token per device, keyed by the salted device hash the other tables use. Written by
+`PUT /v1/push/token`, removed by `DELETE`, by an `UNREGISTERED` answer from FCM, and by the daily purge of rows older
+than 60 days. Read when an admin reviews that device's contribution or report (PRIVACY.md §Push).
+
 Reviewer workflow: `GET /v1/admin/contributions?status=pending` → `GET /v1/admin/contributions/{id}` (payload with `before`
 so the diff is visible even if the official data moved on) → verify → `accept`/`reject` with a note. Accepted routes are merged
 into the data repository by hand and shipped in the next `piyo-import` release; the device sees the status through

@@ -1,10 +1,10 @@
 // Command piyo-api runs the Piyo HTTP API.
 //
 // Configuration comes from environment variables (see .env.example); a few
-// flags override them for convenience: -port, -dev, -sqlite. In DEV_MODE the
-// server uses an in-memory store seeded with demo data; otherwise it opens
-// the SQLite database at SQLITE_PATH. SIGINT/SIGTERM trigger a graceful
-// shutdown with a 10 s drain.
+// flags override them for convenience: -port, -dev, -sqlite, -store. In
+// DEV_MODE the server uses an in-memory store seeded with demo data; otherwise
+// STORE picks the store (default postgres). FCM_PROJECT_ID enables push.
+// SIGINT/SIGTERM trigger a graceful shutdown with a 10 s drain.
 package main
 
 import (
@@ -24,6 +24,7 @@ import (
 
 	"piyo-backend/internal/config"
 	"piyo-backend/internal/httpapi"
+	"piyo-backend/internal/push"
 	"piyo-backend/internal/ratelimit"
 	"piyo-backend/internal/seed"
 	"piyo-backend/internal/store"
@@ -71,7 +72,16 @@ func run() error {
 	limiter := ratelimit.New(cfg.IPRatePerMinute)
 	defer limiter.Stop()
 
-	handler := httpapi.NewHandler(cfg, st, limiter, logger)
+	sender, err := push.New(cfg.FCMProjectID, cfg.FCMCredentialsFile)
+	if err != nil {
+		return fmt.Errorf("push: %w", err)
+	}
+	logger.Info("push", "enabled", sender.Enabled())
+	if sender.Enabled() {
+		go purgePushTokens(ctx, st, logger)
+	}
+
+	handler := httpapi.NewHandlerWithPush(cfg, st, limiter, logger, sender)
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
 		Handler:           handler,
@@ -149,6 +159,26 @@ func openStore(ctx context.Context, cfg config.Config, logger *slog.Logger) (sto
 	}
 	logger.Info("store: in-memory (seeded)", "blocked_demo_install_id", "blocked-demo-device")
 	return st, nil
+}
+
+// purgePushTokens deletes tokens not refreshed within PushTokenMaxAge, at
+// start and then daily (Cloud Run instances are short-lived, so start counts).
+func purgePushTokens(ctx context.Context, st store.Store, logger *slog.Logger) {
+	t := time.NewTicker(24 * time.Hour)
+	defer t.Stop()
+	for {
+		n, err := st.DeletePushTokensBefore(ctx, time.Now().Add(-httpapi.PushTokenMaxAge))
+		if err != nil && ctx.Err() == nil {
+			logger.Warn("push: purge stale tokens", "err", err)
+		} else if n > 0 {
+			logger.Info("push: purged stale tokens", "count", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 // redactDSN hides the password of a postgres:// URL for logs.

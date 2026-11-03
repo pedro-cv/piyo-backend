@@ -1,0 +1,26 @@
+meta {
+  name: suggestion reject
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/suggestions/{{suggestionId}}/reject
+  body: json
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "note": "smoke"
+  }
+}
+
+assert {
+  res.status: in [200, 409]
+}
