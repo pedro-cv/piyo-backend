@@ -20,9 +20,11 @@ All libraries are free, open source and actively maintained (checked by reputati
 | datastore-preferences | 1.1.1 | Apache 2.0 | Favorites, settings, install id, offline outbox. No SQLite needed yet (docs/03 mentions SQLite; DataStore is enough for the first iteration; the bundle itself is a JSON file in `filesDir`). |
 | kotlinx-coroutines-android | 1.9.0 | Apache 2.0 | Async I/O. |
 | OkHttp | 4.12.0 | Apache 2.0 | HTTP client for the backend, manifest download and Photon. Retrofit was skipped: four endpoints do not justify it. |
-| MapLibre Native Android SDK (`org.maplibre.gl:android-sdk`) | 11.8.0 | BSD-2 | Open-source vector map renderer (the only map; no mock map since iteration 3); same engine that could render an offline MBTiles/PMTiles file later (not shipped; its ambient cache covers visited areas) (docs/03 §4). |
+| Firebase BoM + `firebase-messaging` | 33.7.0 (BoM) | Apache 2.0 | Push notifications only (review results, new data release), chosen by the maintainer on 2026-11-01 as the one exception to "no SDK that phones home" (PRIVACY.md §Push). Initialised from `keys.properties`, auto-init off, no Analytics/Crashlytics/Installations use beyond what FCM needs; blank keys = inert. Pulls Play services base/tasks/cloud-messaging (~1–2 MB before R8). BoM pinned to Dec 2024 to match AGP 8.7 / Kotlin 2.1; newer BoMs (35.x) need a toolchain bump. |
+| MapLibre Native Android SDK (`org.maplibre.gl:android-sdk`) | 11.8.0 | BSD-2 | Open-source vector map renderer (the only map; no mock map since iteration 3); renders the city map bundled in the APK from a PMTiles file (`pmtiles://file://`, supported since 11.7/11.8; MAP_HOSTING.md §0). |
+| Bundled city map (`app/src/main/assets/map/`, built by `app/scripts/bundle-map.py`) | built 2026-10-28 | data ODbL 1.0 (© OpenStreetMap contributors); styles BSD-3 (Protomaps basemaps); fonts OFL 1.1 (Noto Sans); see `assets/map/LICENSES.txt` | Offline map of the metro area in light and dark with the same layers: 11 MB PMTiles + ~2 MB fonts/sprites (Latin glyph ranges only). Adds about 12 MB to the APK (release APK 46.6 → 58.5 MB measured). No runtime dependency, no network. |
 
-Not used on purpose: Google Play Services (location uses the framework `LocationManager`), Firebase SDKs (wired later per SETUP_AND_RUN §5.2), Hilt/Koin (one hand-written container is smaller), Room (not needed yet), Coil (no images), any analytics or crash SDK (docs/03 §5).
+Not used on purpose: Google Play Services APIs beyond what FCM pulls in (location uses the framework `LocationManager`), Firebase SDKs other than Messaging, Hilt/Koin (one hand-written container is smaller), Room (not needed yet), Coil (no images), any analytics or crash SDK (docs/03 §5).
 
 ## Backend (`backend/go.mod`)
 
