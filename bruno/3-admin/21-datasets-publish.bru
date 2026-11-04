@@ -1,0 +1,33 @@
+meta {
+  name: publish dataset release
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/v1/admin/datasets/{{publishVersion}}/publish
+  body: json
+  auth: none
+}
+
+headers {
+  X-Admin-Token: {{adminToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {"notify": true, "announce": true}
+}
+
+assert {
+  res.status: neq 401
+}
+
+docs {
+  Run after deploying a release built with piyo-release (CONTRIBUTIONS_DESIGN.md "Releases from
+  contributions"). Marks the contributions listed in the release manifest as published, pushes
+  contribution_published to each sender once and announces the release to the dataset topic.
+  Idempotent. 404: that version is not deployed here; 409 not_latest: only the latest can be published.
+  Set publishVersion (e.g. --env-var publishVersion=16). In a plain smoke run (no such release) 404 is expected;
+  the assertion only checks the admin token.
+}

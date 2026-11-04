@@ -13,9 +13,10 @@ Piyo has no accounts, no analytics and no ads (docs/02 principle 2, docs/03 §5)
 | NPS gating counters: first open timestamp, completed trips count, last NPS timestamp, dismissals | DataStore `piyo_settings` | Show the NPS sheet at most once per 90 days (docs/02) | Same |
 | Offline outbox: pending reports and NPS bodies | DataStore `piyo_settings` | Send when online | Deleted after delivery |
 | Last computed itineraries | memory (`TripSession`) | Resultados/Ruta screens | Until the Activity dies |
-| GPS position | memory | "Mi ubicación", "pasan cerca" | Never persisted, never sent |
+| GPS position and its accuracy | memory | "Mi ubicación", "pasan cerca", trip guidance, accuracy halo on the map | Never persisted; never sent to the piyo API except as the pin of a report the user sends; ~1 km rounded bias to the address search (§4) |
+| Finished trips (origin/destination labels and coordinates, lines, times) | DataStore (`TripHistoryRepository`) | "Tus viajes" on Inicio | Until the user removes them ("Quitar viaje") or clears app data |
 
-Location permission (while using the app, precise or approximate) is asked once by the app on its own, on the first visit to Inicio; after that only when the user taps "Centrar en mi ubicación" or the Ubicación row in Ajustes (which opens the system page if Android no longer shows the dialog). Without permission the app has no position at all (no "you are here" dot; trips start from the city centre unless the user picks an origin). With it, `AndroidLocationProvider` uses the last known fix and replaces it with one fresh fix; continuous updates run only during an active trip. Coordinates are never included in NPS; they are included in a **report** only because the report is about a place.
+Location permission (while using the app, precise or approximate) is asked once by the app on its own, on the first visit to Inicio; after that only when the user taps "Centrar en mi ubicación", starts a trip, or taps the Ubicación row in Ajustes (which opens the system page if Android no longer shows the dialog, and offers precise location when only approximate was granted). **Every request is preceded by an in-app explanation** (`LocationInfoDialog`, also reachable from Ajustes → "¿Para qué usa piyo tu ubicación?") whose lines match this section: shown on the map and used as the trip origin; nearby lines and trip guidance; only while the app is in use, no background tracking; not sent to our server except as a report pin; ~1 km area to the address search; finished trips kept on the phone. "Ahora no" leaves the app fully usable without location. Without permission the app has no position at all (no "you are here" dot; trips start from the city centre unless the user picks an origin). With it, `AndroidLocationProvider` shows the best recent last-known fix (≤ 30 min old) and asks every enabled provider (fused, GPS, network) for a fresh one; fixes are compared by accuracy and age (`FixSelector`), so a coarse network fix never replaces a recent GPS one. Continuous updates run only during an active trip and **pause whenever the app is in the background** (`onAppVisible`), so location is only read while piyo is on screen. The app declares no background-location permission. Coordinates are never included in NPS; they are included in a **report** only because the report is about a place.
 
 ## 2. Sent to the backend
 
@@ -57,7 +58,8 @@ Decision: the maintainer chose FCM for review-result and new-release notificatio
   (or revoking the permission) unsubscribes, deletes the token on the phone and calls `DELETE /v1/push/token`.
 - **What Google sees:** the FCM token, the Firebase installation id FCM needs, the device's IP when it keeps
   the FCM connection, and the message payloads. Payloads are data-only with no text and no personal data:
-  `{"type":"contribution_accepted|contribution_rejected|report_accepted","id":"c_…"}` to one device, or
+  `{"type":"contribution_accepted|contribution_rejected|report_accepted","id":"c_…"}` to one device,
+  `{"type":"contribution_published","version":"N","count":"k"}` to one device when release N includes its routes, or
   `{"type":"dataset","version":"16"}` to the topic. The notification text comes from `strings.xml` on the phone.
 - **What the backend sees:** the token, tied to the existing salted device hash. No new identifier is created
   and nothing joins the token to anything beyond what the device hash already joins (its own reports and
@@ -76,7 +78,7 @@ Decision: the maintainer chose FCM for review-result and new-release notificatio
 | Party | When | What they see |
 |---|---|---|
 | Piyo map server (Martin + Caddy, same host as the API) or OpenFreeMap when `MAP_STYLE_URL` points to it | Map on screen | Tile requests: IP, tile coordinates (coarse area being viewed), User-Agent |
-| Photon (komoot) | Typing in search | Query text, bias coordinates (the user's position or the Plaza), IP, User-Agent `Piyo/<version>` |
+| Photon (komoot) | Typing in search; moving the pin on "elegí en el mapa" | Query text and bias coordinates **rounded to 2 decimals (~1 km)** (the user's area or the Plaza); for the map picker, the point the user placed the pin on; IP, User-Agent `Piyo/<version>` |
 | Google Play services fonts provider | Font load | Standard provider request on the device; no app data |
 | Piyo backend | Reports, NPS, manifest, push token | Section 2 |
 | Google (Firebase Cloud Messaging) | Only while notifications are on | §Push |

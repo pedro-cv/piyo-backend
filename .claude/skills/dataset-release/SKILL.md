@@ -5,6 +5,10 @@ description: Import an upstream line dataset with piyo-import, publish an immuta
 
 # /dataset-release — publish dataset vN
 
+Two ways to make vN: **from upstream** (this page, `piyo-import`) or **from accepted contributions**
+(`piyo-release` on top of the latest release, then `POST /v1/admin/datasets/{N}/publish` after deploying;
+see README "New dataset release from accepted contributions"). Never run both for the same N.
+
 Argument: path to the upstream `lines.json` and the new version number.
 Upstream layouts supported: `osm` (`data/lines.json`) and `named-routes` (see `docs/DATA_SOURCES.md`).
 
