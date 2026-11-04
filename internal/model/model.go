@@ -185,13 +185,21 @@ const (
 	MaxContributionBody    = 512 << 10 // request body cap for POST /v1/contributions
 )
 
-// Contribution is a set of routes (new or updated lines) a user sends from a
-// local data provider for review. Payload holds the routes in the dataset
-// package shapes (`lines`, `variants`, `edits` with the original geometry of
-// updated variants); RouteIDs mirrors the line ids inside it so lists and the
-// device status endpoint do not need to parse the payload.
+// Contribution is one route (a new or updated line) a user sent from a local
+// data provider for review. A request with several routes is stored as one
+// row per route sharing a BatchID, so each route is reviewed, published,
+// withdrawn and notified on its own; the monthly quota counts batches.
+// Payload holds the route in the dataset package shapes (`lines`, `variants`,
+// `edits` with the original geometry of updated variants); RouteIDs mirrors
+// the line id inside it so lists and the device status endpoint do not need
+// to parse the payload. Rows written before the split may hold several routes
+// and have no BatchID.
+//
+// PublishedVersion is the dataset release that includes the route (0 while it
+// is not in any release); it is set by POST /v1/admin/datasets/{v}/publish.
 type Contribution struct {
 	ID                 string          `json:"id"`
+	BatchID            string          `json:"batch_id,omitempty"`
 	DeviceHash         string          `json:"device_hash"`
 	ProviderName       string          `json:"provider_name"`
 	BaseDatasetVersion int             `json:"base_dataset_version"`
@@ -203,6 +211,17 @@ type Contribution struct {
 	ReviewNote         string          `json:"review_note,omitempty"`
 	CreatedAt          time.Time       `json:"created_at"`
 	ReviewedAt         *time.Time      `json:"reviewed_at,omitempty"`
+	PublishedVersion   int             `json:"published_version,omitempty"`
+	PublishedAt        *time.Time      `json:"published_at,omitempty"`
+}
+
+// QuotaKey is what the monthly quota counts: the batch, or the row itself for
+// rows written before batches existed.
+func (c Contribution) QuotaKey() string {
+	if c.BatchID != "" {
+		return c.BatchID
+	}
+	return c.ID
 }
 
 // Summary returns a copy without the payload, for list endpoints.

@@ -1,4 +1,5 @@
-// Contribution methods of the PostgreSQL store (table from migrations/002_contributions.sql).
+// Contribution methods of the PostgreSQL store (table from migrations/002_contributions.sql,
+// batch and release columns from 004_contribution_batches.sql).
 package postgres
 
 import (
@@ -8,22 +9,27 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"piyo-backend/internal/model"
 	"piyo-backend/internal/store"
 )
 
-const contribCols = `id, device_hash, provider_name, base_dataset_version, route_ids, payload, comment, app_version, status, review_note, created_at, reviewed_at`
-const contribColsNoPayload = `id, device_hash, provider_name, base_dataset_version, route_ids, NULL::jsonb, comment, app_version, status, review_note, created_at, reviewed_at`
+const contribCols = `id, device_hash, provider_name, base_dataset_version, route_ids, payload, comment, app_version, status, review_note, created_at, reviewed_at, batch_id, published_version, published_at`
+const contribColsNoPayload = `id, device_hash, provider_name, base_dataset_version, route_ids, NULL::jsonb, comment, app_version, status, review_note, created_at, reviewed_at, batch_id, published_version, published_at`
 
 func scanContribution(row pgx.Row) (*model.Contribution, error) {
 	var c model.Contribution
-	var reviewed *time.Time
+	var reviewed, published *time.Time
 	var payload []byte
 	var routeIDs []string
 	if err := row.Scan(&c.ID, &c.DeviceHash, &c.ProviderName, &c.BaseDatasetVersion, &routeIDs, &payload, &c.Comment,
-		&c.AppVersion, &c.Status, &c.ReviewNote, &c.CreatedAt, &reviewed); err != nil {
+		&c.AppVersion, &c.Status, &c.ReviewNote, &c.CreatedAt, &reviewed, &c.BatchID, &c.PublishedVersion, &published); err != nil {
 		return nil, err
+	}
+	if published != nil {
+		t := published.UTC()
+		c.PublishedAt = &t
 	}
 	if len(payload) > 0 {
 		c.Payload = payload
@@ -40,7 +46,11 @@ func scanContribution(row pgx.Row) (*model.Contribution, error) {
 	return &c, nil
 }
 
-func (s *Store) CreateContribution(ctx context.Context, c *model.Contribution) error {
+type execer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+func insertContribution(ctx context.Context, db execer, c *model.Contribution) error {
 	payload := c.Payload
 	if len(payload) == 0 {
 		payload = []byte("{}")
@@ -49,19 +59,83 @@ func (s *Store) CreateContribution(ctx context.Context, c *model.Contribution) e
 	if ids == nil {
 		ids = []string{}
 	}
-	_, err := s.pool.Exec(ctx, `INSERT INTO contributions (id, device_hash, provider_name, base_dataset_version, route_ids, payload, comment, app_version, status, review_note, created_at, reviewed_at)
-		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12)`,
-		c.ID, c.DeviceHash, c.ProviderName, c.BaseDatasetVersion, ids, string(payload), c.Comment, c.AppVersion, c.Status, c.ReviewNote, c.CreatedAt, c.ReviewedAt)
+	_, err := db.Exec(ctx, `INSERT INTO contributions (`+contribCols+`)
+		VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		c.ID, c.DeviceHash, c.ProviderName, c.BaseDatasetVersion, ids, string(payload), c.Comment, c.AppVersion, c.Status, c.ReviewNote,
+		c.CreatedAt, c.ReviewedAt, c.BatchID, c.PublishedVersion, c.PublishedAt)
 	if isUnique(err) {
 		return store.ErrAlreadyExists
 	}
 	return err
 }
 
+func (s *Store) CreateContribution(ctx context.Context, c *model.Contribution) error {
+	return insertContribution(ctx, s.pool, c)
+}
+
+func (s *Store) CreateContributions(ctx context.Context, cs []*model.Contribution) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	for _, c := range cs {
+		if err := insertContribution(ctx, tx, c); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// CountContributionsSince counts batches; rows from before migration 004 count as their own batch.
 func (s *Store) CountContributionsSince(ctx context.Context, deviceHash string, since time.Time) (int, error) {
 	var n int
-	err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM contributions WHERE device_hash=$1 AND created_at >= $2`, deviceHash, since).Scan(&n)
+	err := s.pool.QueryRow(ctx, `SELECT COUNT(DISTINCT COALESCE(NULLIF(batch_id, ''), id)) FROM contributions WHERE device_hash=$1 AND created_at >= $2`, deviceHash, since).Scan(&n)
 	return n, err
+}
+
+func (s *Store) DeleteContribution(ctx context.Context, id, deviceHash string) error {
+	var status string
+	err := s.pool.QueryRow(ctx, `SELECT status FROM contributions WHERE id=$1 AND device_hash=$2`, id, deviceHash).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return store.ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if status != model.StatusPending {
+		return store.ErrNotPending
+	}
+	tag, err := s.pool.Exec(ctx, `DELETE FROM contributions WHERE id=$1 AND device_hash=$2 AND status='pending'`, id, deviceHash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return store.ErrNotPending // reviewed between the read and the delete
+	}
+	return nil
+}
+
+func (s *Store) MarkContributionsPublished(ctx context.Context, ids []string, version int, at time.Time) ([]model.Contribution, error) {
+	if len(ids) == 0 {
+		return []model.Contribution{}, nil
+	}
+	rows, err := s.pool.Query(ctx, `UPDATE contributions SET published_version=$1, published_at=$2
+		WHERE id = ANY($3) AND status='accepted' AND published_version=0
+		RETURNING `+contribColsNoPayload, version, at, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []model.Contribution{}
+	for rows.Next() {
+		c, err := scanContribution(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *c)
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) queryContribs(ctx context.Context, where string, args ...any) ([]model.Contribution, error) {
