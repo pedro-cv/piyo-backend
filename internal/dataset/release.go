@@ -26,7 +26,13 @@ import (
 )
 
 // Write writes the package as a release under dir and returns the manifest.
+// It overwrites an existing version (the importer's re-run with -db relies on
+// that); new releases built from contributions use WriteRelease.
 func Write(dir string, pkg *Package, minAppVersion string) (*Manifest, error) {
+	return write(dir, pkg, minAppVersion, nil)
+}
+
+func write(dir string, pkg *Package, minAppVersion string, changes *ReleaseChanges) (*Manifest, error) {
 	vdir := filepath.Join(dir, "v"+strconv.Itoa(pkg.DatasetVersion))
 	if err := os.MkdirAll(vdir, 0o755); err != nil {
 		return nil, err
@@ -45,6 +51,7 @@ func Write(dir string, pkg *Package, minAppVersion string) (*Manifest, error) {
 		Counts: map[string]int{
 			"lines": len(pkg.Lines), "stops": len(pkg.Stops), "variants": len(pkg.Variants), "transfers": len(pkg.Transfers),
 		},
+		Changes: changes,
 	}
 	write := func(name string, v any) (FileInfo, error) {
 		data, err := json.Marshal(v)

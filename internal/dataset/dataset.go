@@ -169,10 +169,23 @@ type Manifest struct {
 	Package        FileInfo       `json:"package"`
 	Files          []FileInfo     `json:"files"`
 	Message        string         `json:"message,omitempty"`
+	// Changes is set on releases built from contributions (piyo-release).
+	Changes *ReleaseChanges `json:"changes,omitempty"`
 	// Legacy mirrors of Package.
 	URL    string `json:"url"`
 	Bytes  int64  `json:"bytes"`
 	SHA256 string `json:"sha256"`
+}
+
+// ReleaseChanges records what a release built from vBase changed: the
+// contributions it includes (POST /v1/admin/datasets/{v}/publish marks them
+// published and notifies their senders) and the lines they added or updated.
+type ReleaseChanges struct {
+	BaseVersion     int      `json:"base_version"`
+	ContributionIDs []string `json:"contribution_ids"`
+	LinesAdded      []string `json:"lines_added"`
+	LinesUpdated    []string `json:"lines_updated"`
+	Notes           string   `json:"notes,omitempty"`
 }
 
 // WithBase returns a copy of the manifest whose file URLs are absolute under
