@@ -24,6 +24,10 @@ var (
 	ErrNotFound      = errors.New("store: not found")
 	ErrAlreadyExists = errors.New("store: already exists")
 	ErrInvalidStatus = errors.New("store: invalid status")
+	// ErrNotPending is returned when a device withdraws a contribution that
+	// was already reviewed (accepted or rejected rows are kept: they are the
+	// review history and the auto-block evidence).
+	ErrNotPending = errors.New("store: not pending")
 )
 
 // Store is the persistence contract. Implementations must be goroutine-safe.
@@ -50,9 +54,21 @@ type Store interface {
 	// CountRejectedSuggestionsSince counts rejected suggestions reviewed at or after since.
 	CountRejectedSuggestionsSince(ctx context.Context, deviceHash string, since time.Time) (int, error)
 
-	// Contributions (routes sent from a local data provider; same statuses)
+	// Contributions (one route per row, sent from a local data provider; same statuses)
 	CreateContribution(ctx context.Context, c *model.Contribution) error
+	// CreateContributions inserts every row or none (one request = one batch).
+	CreateContributions(ctx context.Context, cs []*model.Contribution) error
+	// CountContributionsSince counts the device's batches (model.Contribution.QuotaKey)
+	// created at or after since, so splitting a request into rows does not use more quota.
 	CountContributionsSince(ctx context.Context, deviceHash string, since time.Time) (int, error)
+	// DeleteContribution removes a pending contribution of the device (withdrawn from the
+	// app). ErrNotFound when it does not exist or belongs to another device, ErrNotPending
+	// when it was already reviewed.
+	DeleteContribution(ctx context.Context, id, deviceHash string) error
+	// MarkContributionsPublished sets PublishedVersion/PublishedAt on the given accepted,
+	// not yet published contributions and returns those it changed (so a repeated call
+	// notifies nobody twice).
+	MarkContributionsPublished(ctx context.Context, ids []string, version int, at time.Time) ([]model.Contribution, error)
 	// ListContributions filters by status (StatusAll for none). Payloads are omitted.
 	ListContributions(ctx context.Context, status string, limit int) ([]model.Contribution, error)
 	// ListContributionsByDevice returns the device's contributions newest first, payloads omitted.

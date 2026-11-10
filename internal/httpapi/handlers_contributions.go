@@ -3,6 +3,11 @@
 // by a maintainer like suggestions, but with a *monthly* per-device quota
 // (MAX_CONTRIBUTIONS_PER_MONTH) so reviewers have time to check each one, a
 // bigger body cap (model.MaxContributionBody) and whole-route validation.
+//
+// One request may carry several routes; each is stored as its own row (one
+// id, status, review note and notification per route) and the rows share a
+// batch id, which is what the monthly quota counts. A device may withdraw a
+// route that is still pending (DELETE /v1/contributions/{id}).
 package httpapi
 
 import (
@@ -241,33 +246,117 @@ func (s *Server) handleCreateContribution(w http.ResponseWriter, r *http.Request
 			map[string]any{"limit": s.cfg.MaxContributionsPerMonth, "resets_at": nextUTCMonth(now).Format(time.RFC3339)})
 		return
 	}
-	// Store the payload without the envelope fields that live in their own columns.
-	var payload map[string]json.RawMessage
-	_ = json.Unmarshal(raw, &payload)
-	delete(payload, "provider_name")
-	delete(payload, "app_version")
-	delete(payload, "comment")
-	stored, _ := json.Marshal(payload)
-	c := &model.Contribution{
-		ID: newID("c_"), DeviceHash: hash, ProviderName: in.ProviderName, BaseDatasetVersion: in.BaseDatasetVersion,
-		RouteIDs: routeIDs, Payload: stored, Comment: in.Comment, AppVersion: in.AppVersion,
-		Status: model.StatusPending, CreatedAt: now,
+	payloads, err := splitContributionPayload(raw, in.BaseDatasetVersion, routeIDs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", err.Error(), nil)
+		return
 	}
-	if err := s.store.CreateContribution(ctx, c); err != nil {
+	batch := newID("b_")
+	rows := make([]*model.Contribution, len(routeIDs))
+	for i, id := range routeIDs {
+		rows[i] = &model.Contribution{
+			ID: newID("c_"), BatchID: batch, DeviceHash: hash, ProviderName: in.ProviderName, BaseDatasetVersion: in.BaseDatasetVersion,
+			RouteIDs: []string{id}, Payload: payloads[i], Comment: in.Comment, AppVersion: in.AppVersion,
+			Status: model.StatusPending, CreatedAt: now,
+		}
+	}
+	if err := s.store.CreateContributions(ctx, rows); err != nil {
 		if errors.Is(err, store.ErrAlreadyExists) {
-			c.ID = newID("c_")
-			err = s.store.CreateContribution(ctx, c)
+			for _, c := range rows {
+				c.ID = newID("c_")
+			}
+			err = s.store.CreateContributions(ctx, rows)
 		}
 		if err != nil {
 			s.internalError(w, r, "create contribution: insert", err)
 			return
 		}
 	}
+	created := make([]map[string]string, len(rows))
+	for i, c := range rows {
+		created[i] = map[string]string{"id": c.ID, "route_id": routeIDs[i]}
+	}
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"id":        c.ID,
-		"remaining": remaining(s.cfg.MaxContributionsPerMonth, used+1),
-		"resets_at": nextUTCMonth(now).Format(time.RFC3339),
+		"id":            rows[0].ID, // first route; kept for apps that read a single id
+		"batch_id":      batch,
+		"contributions": created,
+		"remaining":     remaining(s.cfg.MaxContributionsPerMonth, used+1),
+		"resets_at":     nextUTCMonth(now).Format(time.RFC3339),
 	})
+}
+
+// splitContributionPayload cuts the request into one stored payload per line
+// ({base_dataset_version, lines:[line], variants:[its variants], edits:{line: edit}}),
+// keeping every element verbatim. The envelope fields (provider_name,
+// app_version, comment) live in their own columns.
+func splitContributionPayload(raw json.RawMessage, baseVersion int, routeIDs []string) ([]json.RawMessage, error) {
+	var parts struct {
+		Lines    []json.RawMessage          `json:"lines"`
+		Variants []json.RawMessage          `json:"variants"`
+		Edits    map[string]json.RawMessage `json:"edits"`
+	}
+	if err := json.Unmarshal(raw, &parts); err != nil {
+		return nil, err
+	}
+	lineOf := func(el json.RawMessage) string {
+		var k struct {
+			LineID string `json:"line_id"`
+		}
+		_ = json.Unmarshal(el, &k)
+		return strings.TrimSpace(k.LineID)
+	}
+	out := make([]json.RawMessage, len(routeIDs))
+	for i, id := range routeIDs {
+		p := map[string]any{"base_dataset_version": baseVersion, "lines": []json.RawMessage{}, "variants": []json.RawMessage{}, "edits": map[string]json.RawMessage{}}
+		var ls, vs []json.RawMessage
+		for _, l := range parts.Lines {
+			if lineOf(l) == id {
+				ls = append(ls, l)
+			}
+		}
+		for _, v := range parts.Variants {
+			if lineOf(v) == id {
+				vs = append(vs, v)
+			}
+		}
+		if ls == nil {
+			ls = []json.RawMessage{}
+		}
+		if vs == nil {
+			vs = []json.RawMessage{}
+		}
+		p["lines"], p["variants"] = ls, vs
+		if e, ok := parts.Edits[id]; ok {
+			p["edits"] = map[string]json.RawMessage{id: e}
+		}
+		b, err := json.Marshal(p)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = b
+	}
+	return out, nil
+}
+
+// handleWithdrawContribution: DELETE /v1/contributions/{id} — the device removed
+// the route before it was reviewed. Reviewed rows stay (409): they are the review
+// history, the auto-block evidence and, when accepted, the source of a release.
+func (s *Server) handleWithdrawContribution(w http.ResponseWriter, r *http.Request) {
+	hash, ok := s.requireDevice(w, r)
+	if !ok {
+		return
+	}
+	err := s.store.DeleteContribution(r.Context(), r.PathValue("id"), hash)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "no such contribution from this device", nil)
+	case errors.Is(err, store.ErrNotPending):
+		writeError(w, http.StatusConflict, "not_pending", "this contribution was already reviewed and cannot be withdrawn", nil)
+	case err != nil:
+		s.internalError(w, r, "withdraw contribution", err)
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // handleMyContributions: GET /v1/contributions/mine — statuses for this device (no payloads).
@@ -284,8 +373,9 @@ func (s *Server) handleMyContributions(w http.ResponseWriter, r *http.Request) {
 	out := make([]map[string]any, 0, len(list))
 	for _, c := range list {
 		out = append(out, map[string]any{
-			"id": c.ID, "status": c.Status, "review_note": c.ReviewNote, "route_ids": c.RouteIDs,
+			"id": c.ID, "batch_id": c.BatchID, "status": c.Status, "review_note": c.ReviewNote, "route_ids": c.RouteIDs,
 			"provider_name": c.ProviderName, "created_at": c.CreatedAt.Format(time.RFC3339), "reviewed_at": rfc3339(c.ReviewedAt),
+			"published_version": c.PublishedVersion,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"count": len(out), "contributions": out})
@@ -293,7 +383,8 @@ func (s *Server) handleMyContributions(w http.ResponseWriter, r *http.Request) {
 
 // --- admin -------------------------------------------------------------------
 
-// handleAdminListContributions: GET /v1/admin/contributions?status=pending&limit=100
+// handleAdminListContributions: GET /v1/admin/contributions?status=pending&limit=100[&published=true|false]
+// published=false with status=accepted lists what the next release can include.
 func (s *Server) handleAdminListContributions(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	if status == "" {
@@ -304,7 +395,16 @@ func (s *Server) handleAdminListContributions(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
 		return
 	}
-	list, err := s.store.ListContributions(r.Context(), status, limit)
+	published := r.URL.Query().Get("published")
+	if published != "" && published != "true" && published != "false" {
+		writeError(w, http.StatusBadRequest, "validation_error", "published must be true or false", nil)
+		return
+	}
+	fetch := limit
+	if published != "" {
+		fetch = 1000 // filter below, then apply limit
+	}
+	list, err := s.store.ListContributions(r.Context(), status, fetch)
 	if err != nil {
 		if errors.Is(err, store.ErrInvalidStatus) {
 			writeError(w, http.StatusBadRequest, "validation_error", "status must be pending, accepted, rejected or all", nil)
@@ -312,6 +412,16 @@ func (s *Server) handleAdminListContributions(w http.ResponseWriter, r *http.Req
 		}
 		s.internalError(w, r, "list contributions", err)
 		return
+	}
+	if published != "" {
+		want := published == "true"
+		kept := list[:0]
+		for _, c := range list {
+			if (c.PublishedVersion > 0) == want && len(kept) < limit {
+				kept = append(kept, c)
+			}
+		}
+		list = kept
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"count": len(list), "contributions": list})
 }

@@ -31,17 +31,71 @@ func (m *Memory) CreateContribution(_ context.Context, c *model.Contribution) er
 	return nil
 }
 
-// CountContributionsSince counts the device's contributions created at or after since.
+// CreateContributions stores copies of cs, all or none.
+func (m *Memory) CreateContributions(_ context.Context, cs []*model.Contribution) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cm := m.contribsMap()
+	seen := map[string]bool{}
+	for _, c := range cs {
+		if _, exists := cm[c.ID]; exists || seen[c.ID] {
+			return ErrAlreadyExists
+		}
+		seen[c.ID] = true
+	}
+	for _, c := range cs {
+		cp := *c
+		cp.Payload = append([]byte(nil), c.Payload...)
+		cp.RouteIDs = append([]string(nil), c.RouteIDs...)
+		cm[c.ID] = &cp
+	}
+	return nil
+}
+
+// CountContributionsSince counts the device's batches created at or after since.
 func (m *Memory) CountContributionsSince(_ context.Context, deviceHash string, since time.Time) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	n := 0
+	batches := map[string]bool{}
 	for _, c := range m.contribs {
 		if c.DeviceHash == deviceHash && !c.CreatedAt.Before(since) {
-			n++
+			batches[c.QuotaKey()] = true
 		}
 	}
-	return n, nil
+	return len(batches), nil
+}
+
+// DeleteContribution removes a pending contribution owned by deviceHash.
+func (m *Memory) DeleteContribution(_ context.Context, id, deviceHash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	c, ok := m.contribs[id]
+	if !ok || c.DeviceHash != deviceHash {
+		return ErrNotFound
+	}
+	if c.Status != model.StatusPending {
+		return ErrNotPending
+	}
+	delete(m.contribs, id)
+	return nil
+}
+
+// MarkContributionsPublished marks accepted, unpublished contributions as part of version.
+func (m *Memory) MarkContributionsPublished(_ context.Context, ids []string, version int, at time.Time) ([]model.Contribution, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := []model.Contribution{}
+	for _, id := range ids {
+		c, ok := m.contribs[id]
+		if !ok || c.Status != model.StatusAccepted || c.PublishedVersion != 0 {
+			continue
+		}
+		c.PublishedVersion = version
+		t := at
+		c.PublishedAt = &t
+		out = append(out, c.Summary())
+	}
+	return out, nil
 }
 
 func (m *Memory) listContribs(filter func(*model.Contribution) bool, limit int) []model.Contribution {

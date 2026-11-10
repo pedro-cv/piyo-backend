@@ -181,3 +181,78 @@ Docs: `DATA_MODEL.md` §9 (provider file + contributions), `PRIVACY.md`, `SETUP_
 - **Invertir el sentido de los recorridos** (renamed 2026-10-31; it was a label swap first): in the route picker (after choosing a line) and in a provider route's ⋯ menu. Every variant of the line is reversed point by point (`Variant.reversed()`: points, streets, stops reversed, origin <-> destination; label and id unchanged), then the line is saved into the active provider as an `update` (or `add`), creating the provider when official data is active. The backend receives it as a normal contribution with `before` polylines. The editor has the same action for a single trace (**Invertir**).
 - Editor **Mover** is a drag: press a vertex (hit radius ≈ 24 dp) and drag it; the map stops panning while dragging (`MapDrag` on `MapProvider.Map`). A tap far from any vertex does nothing in this mode.
 - The "Otras líneas" overlay was removed: drawing all 294 variants on top of the editor strained low-end phones.
+
+## Update 2026-11-04 — one row per route, withdrawal, releases from contributions
+
+Supersedes the parts of §3.3, §4.1 and §4.3 it touches.
+
+### One route per row
+
+`POST /v1/contributions` still accepts up to 10 routes, but stores **one row per route**. The rows of a
+request share `batch_id`; each has its own id, status, review note, notification and publish state, so a
+reviewer can accept one route and reject another. Before, two routes sent together became one row with
+`route_ids: [a, b]` and could only be reviewed together. The monthly quota counts **batches**
+(`COUNT(DISTINCT batch_id)`; rows from before the change have `batch_id = ''` and count on their own), so
+the split costs the user nothing. Response: `{"id": <first>, "batch_id", "contributions": [{"id","route_id"}], "remaining", "resets_at"}`;
+`id` stays for older apps. Each stored payload is `{base_dataset_version, lines:[line], variants:[its variants], edits:{line: edit}}`.
+
+New columns (PostgreSQL migration `004_contribution_batches.sql`, SQLite adds them on open):
+`batch_id TEXT NOT NULL DEFAULT ''`, `published_version INTEGER NOT NULL DEFAULT 0`, `published_at`.
+
+### Withdrawal ("Quitar de mis rutas")
+
+`DELETE /v1/contributions/{id}` (device): 204 deletes a **pending** row of this device; 404 when it does not
+exist or belongs to another device; 409 `not_pending` once reviewed. Reviewed rows stay: they are the
+review history, the auto-block evidence and, when accepted, the source of a release. The per-IP rate
+limit applies; a device can only delete its own rows, so the table cannot grow through this route.
+
+App: "Quitar" became "Quitar de mis rutas" with a confirmation that says what happens on the phone (the
+route disappears / the official route is shown again) and on the server, by state: pending → "Quitar y
+retirar envío" (DELETE first; without connection nothing is removed, so phone and server never disagree);
+accepted → it still arrives in the next update; published → official data does not change; rejected →
+phone only. Deleting a provider withdraws its pending routes the same way. Routes sent before the split
+that share a server id with another route are removed locally only (withdrawing would drop the other).
+
+### Wrong routes are contributions, not reports
+
+The report form no longer offers "Recorrido incorrecto": a report only carries a point and a comment, a
+contribution carries the geometry a reviewer needs. The report screen opens with a card that goes straight
+to the route editor for that line ("Corregir el recorrido"), or to a new route when the problem is a
+missing line; the line detail has "Corregir recorrido" next to "Reportar otro problema". Reports keep
+stop / gone / missing / other. The API still accepts `type: "route"` from older apps.
+
+### Releases from contributions (route data versioning)
+
+Releases are immutable files (`releases/vN`, `dataset.Write`) built offline and deployed with the API
+(Cloud Run bakes `releases/` into the image), so a release is built locally and then published:
+
+1. **Review** in the admin API (`GET /v1/admin/contributions?status=pending`, `…/{id}`, `…/{id}/accept|reject`).
+2. **Build** `piyo-release` (`cmd/piyo-release`): reads the latest `releases/vN`, fetches accepted and
+   unpublished contributions (`GET /v1/admin/contributions?status=accepted&published=false`, then each
+   payload) or reads them from a file, merges them (`dataset.MergeContributions`), validates
+   (`dataset.Validate`) and writes `releases/v(N+1)` with `manifest.json` → `changes`
+   `{base_version, contribution_ids, lines_added, lines_updated, notes}`. It refuses to overwrite a version.
+   - `add` creates a line; `update` replaces every variant of the line (the app always sends whole lines).
+   - Conflicts are **skipped** and printed, unless `-force`: an update whose `before` geometry no longer
+     matches the base (the line changed in a release after the user made the change), an add that reuses an
+     existing line id, a variant id owned by another line, a second contribution to a line already changed
+     in this release, a point outside `METRO_BOUNDS`. Lines are never deleted by a merge.
+   - Transfers and bbox are recomputed; stops no longer used by any variant are dropped; a replaced line
+     loses its upstream `source_url`.
+3. **Deploy** the API with the new folder (Cloud Run: `deploy/cloudrun/deploy.sh`; VPS: copy to
+   `deploy/data/releases`). `/v1/manifest` now points at v(N+1); apps pick it up with "Buscar actualización".
+4. **Publish** `POST /v1/admin/datasets/{N+1}/publish` (admin): checks that this server serves that version
+   and that it is the latest, marks the contributions in `changes.contribution_ids` as published
+   (`published_version`, only accepted and not yet published ones, so a repeated call marks and notifies
+   nobody again), sends one data-only push per device `{"type":"contribution_published","version","count"}`
+   and announces `{"type":"dataset","version"}` to the `dataset` topic. Body (optional):
+   `{"notify":true,"announce":true}`. The response lists `published_contributions`,
+   `skipped_contributions`, `devices_notified`, `announced` and `pending_reports_on_changed_lines`
+   (pending reports made against older data about lines this release changed: check whether it fixes them).
+
+Across versions: a contribution keeps its `base_dataset_version` and per-line `before`, which is how a
+later merge detects that the official line moved on; `GET /v1/contributions/mine` returns
+`published_version`, and the app shows "En los datos oficiales · vN" (refreshed on resume and when an
+update installs). Reports keep their `data_version`; publishing lists the pending ones on changed lines.
+Release notes: the merged geometry is community data on top of the route data provider's; check the
+licence terms in `docs/DATA_SOURCES.md` before publishing a merged release publicly.

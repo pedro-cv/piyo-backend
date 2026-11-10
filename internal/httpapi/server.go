@@ -108,6 +108,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/contributions/quota", s.handleContributionQuota)
 	mux.HandleFunc("GET /v1/contributions/mine", s.handleMyContributions)
 	mux.HandleFunc("POST /v1/contributions", s.handleCreateContribution)
+	mux.HandleFunc("DELETE /v1/contributions/{id}", s.handleWithdrawContribution)
 	mux.HandleFunc("PUT /v1/push/token", s.handleSetPushToken)
 	mux.HandleFunc("DELETE /v1/push/token", s.handleDeletePushToken)
 
@@ -124,6 +125,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/admin/contributions/{id}/accept", admin(s.handleAdminAcceptContribution))
 	mux.HandleFunc("POST /v1/admin/contributions/{id}/reject", admin(s.handleAdminRejectContribution))
 	mux.HandleFunc("GET /v1/admin/datasets", admin(s.handleAdminDatasets))
+	mux.HandleFunc("POST /v1/admin/datasets/{version}/publish", admin(s.handleAdminPublishDataset))
 	mux.HandleFunc("POST /v1/admin/push/dataset", admin(s.handleAdminPushDataset))
 	mux.HandleFunc("GET /v1/admin/blocks", admin(s.handleAdminListBlocks))
 	mux.HandleFunc("POST /v1/admin/blocks", admin(s.handleAdminCreateBlock))

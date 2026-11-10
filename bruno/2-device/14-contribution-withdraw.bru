@@ -1,0 +1,24 @@
+meta {
+  name: contribution withdraw (unknown id)
+  type: http
+  seq: 14
+}
+
+delete {
+  url: {{baseUrl}}/v1/contributions/c_000000000000
+  body: none
+  auth: none
+}
+
+headers {
+  X-Install-Id: {{installId}}
+}
+
+assert {
+  res.status: eq 404
+}
+
+docs {
+  DELETE /v1/contributions/{id} withdraws a pending route of this device (204). 404 for an unknown id or
+  another device's, 409 not_pending once reviewed.
+}

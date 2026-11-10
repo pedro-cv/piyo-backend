@@ -13,6 +13,7 @@ If this folder is inside the workspace repo, the root `CLAUDE.md` and `.claude/r
 |---|---|
 | `cmd/piyo-api/main.go` | Flags/env → config, store selection (`STORE=memory|sqlite|postgres`), server start |
 | `cmd/piyo-import/main.go` | Importer: upstream `lines.json` → dataset release `vN` (+ optional PostGIS load) |
+| `cmd/piyo-release/main.go` | Next release from the latest one + accepted contributions (`dataset.MergeContributions`), then `POST /v1/admin/datasets/{v}/publish` |
 | `internal/config/` | `Config` from env, `Validate()` refuses prod without `ADMIN_TOKEN`/`HASH_SALT` |
 | `internal/httpapi/server.go` | Router (`routes()`), middleware: recoverer, access log, CORS, rate limit, body limit, `admin()` |
 | `internal/httpapi/handlers_*.go` | One file per area: public, dataset, reports, nps, suggestions, contributions, admin |
@@ -33,6 +34,8 @@ go test ./... && go vet ./...                 # must be green; no database neede
 go run ./cmd/piyo-api                         # DEV_MODE=true → memory store + demo data on :8080
 curl -s localhost:8080/v1/health
 go run ./cmd/piyo-import -source <lines.json> -out ../deploy/data/releases -version N [-db postgres://…]
+ADMIN_TOKEN=… go run ./cmd/piyo-release -api <api> -releases ./releases [-dry-run]   # release from contributions
+PIYO_TEST_DATABASE_URL=postgres://… go test ./internal/store/postgres/   # store contract on a throwaway DB
 
 cd deploy && cp .env.example .env             # then edit; never commit .env
 docker compose up -d --build && docker compose ps
